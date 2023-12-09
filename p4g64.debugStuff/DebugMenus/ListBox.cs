@@ -21,7 +21,6 @@ internal unsafe class ListBox
 
     internal ListBox(IReloadedHooks hooks)
     {
-        Debugger.Launch();
         Utils.SigScan("48 8B C4 48 89 58 ?? 48 89 70 ?? 48 89 78 ?? 55 48 8D A8 ?? ?? ?? ?? 48 81 EC 70 02 00 00", "KskListBoxRenderText", address =>
         {
             _renderTextHook = hooks.CreateHook<KskListBoxRenderTextDelegate>(KskListBoxRenderText, address).Activate();
