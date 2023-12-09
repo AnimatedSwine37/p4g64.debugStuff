@@ -1,4 +1,5 @@
 ﻿using p4g64.debugStuff.Configuration;
+using Reloaded.Memory;
 using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
 using Reloaded.Mod.Interfaces;
 using System.Diagnostics;
@@ -11,12 +12,15 @@ internal class Utils
     private static ILogger _logger;
     private static Config _config;
     private static IStartupScanner _startupScanner;
+    private static Memory _memory;
+
     internal static nint BaseAddress { get; private set; }
 
     internal static bool Initialise(ILogger logger, Config config, IModLoader modLoader)
     {
         _logger = logger;
         _config = config;
+        _memory = Memory.Instance;
         using var thisProcess = Process.GetCurrentProcess();
         BaseAddress = thisProcess.MainModule!.BaseAddress;
 
@@ -67,25 +71,38 @@ internal class Utils
         });
     }
 
-    /// <summary>
-    /// Formats a string using a printf style format to use c# style
-    /// </summary>
-    /// <param name="format"></param>
-    /// <returns></returns>
-    public static string FormatString(string format)
+    public unsafe static string GetCString(byte* ptr)
     {
-        int n = 0;
-        string csFormat = Regex.Replace(format, @"%[dsf]", m => $"{{{n++}}}");
-        return csFormat;
+        return Encoding.ASCII.GetString(ptr, GetCStringLength(ptr));
     }
 
-    public unsafe static string GetCString(byte* ptr)
+    public unsafe static int GetCStringLength(byte* ptr)
     {
         int count = 0;
         while (*(ptr + count) != 0)
             count++;
-        return Encoding.ASCII.GetString(ptr, count);
+        return count;
     }
+
+    /// <summary>
+    /// Writes a string to memory, returning the address of it
+    /// </summary>
+    /// <param name="str">The string to write</param>
+    /// <param name="encoding">The encoding to use</param>
+    /// <returns>The address of the string in memory</returns>
+    internal static unsafe char* WriteStr(string str, Encoding encoding)
+    {
+        // null terminate if it isn't already
+        if (!str.EndsWith('\0'))
+            str = str + '\0';
+
+        var strBytes = encoding.GetBytes(str);
+        var strPtr = _memory.Allocate((nuint)strBytes.Length).Address;
+        _memory.WriteRaw(strPtr, strBytes);
+        LogDebug($"Wrote \"{str}\" to 0x{strPtr:X} with encoding {encoding.EncodingName}");
+        return (char*)strPtr;
+    }
+
 
     // Pushes the value of an xmm register to the stack, saving it so it can be restored with PopXmm
     public static string PushXmm(int xmmNum)
