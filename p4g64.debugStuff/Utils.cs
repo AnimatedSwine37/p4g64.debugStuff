@@ -1,6 +1,7 @@
 ﻿using p4g64.debugStuff.Configuration;
 using Reloaded.Memory;
 using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
+using Reloaded.Memory.Structs;
 using Reloaded.Mod.Interfaces;
 using System.Diagnostics;
 using System.Text;
@@ -90,14 +91,15 @@ internal class Utils
     /// <param name="str">The string to write</param>
     /// <param name="encoding">The encoding to use</param>
     /// <returns>The address of the string in memory</returns>
-    internal static unsafe char* WriteStr(string str, Encoding encoding)
+    internal static unsafe char* WriteStr(string str, Encoding encoding, out MemoryAllocation allocation)
     {
         // null terminate if it isn't already
         if (!str.EndsWith('\0'))
             str = str + '\0';
 
         var strBytes = encoding.GetBytes(str);
-        var strPtr = _memory.Allocate((nuint)strBytes.Length).Address;
+        allocation = _memory.Allocate((nuint)strBytes.Length);
+        var strPtr = allocation.Address;
         _memory.WriteRaw(strPtr, strBytes);
         LogDebug($"Wrote \"{str}\" to 0x{strPtr:X} with encoding {encoding.EncodingName}");
         return (char*)strPtr;

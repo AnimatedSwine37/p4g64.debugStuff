@@ -11,9 +11,10 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using IReloadedHooks = Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks;
-using static p4g64.debugStuff.Native;
 using Reloaded.Memory;
 using p4g64.debugStuff.DebugMenus;
+using p4g64.debugStuff.Native;
+using static p4g64.debugStuff.Native.Tasks;
 
 namespace p4g64.debugStuff;
 /// <summary>
@@ -62,7 +63,6 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     private Action _runRgbEdit;
     private Action _runDebugMenu;
     private Action _runEvtEditLoad;
-    private RunFbnEditorDelegate _runEnvironmentEditor;
     private RunFbnEditorDelegate _runFbnEditor;
     private RunFbnEditorDelegate _runTestMayonakaTv;
     private Action _runCommunityEdit;
@@ -71,6 +71,9 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     private char* _fieldViewerStr;
 
     private ListBox _listBox;
+    private Files _fileHooks;
+
+    private EnvironmentEditor _environmentEditor;
 
     public Mod(ModContext context)
     {
@@ -82,9 +85,13 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         _modConfig = context.ModConfig;
 
         Utils.Initialise(_logger, _configuration, _modLoader);
-        Native.Initialise(_hooks);
+        Text.Initialise(_hooks);
+        Tasks.Initialise(_hooks);
 
         _listBox = new(_hooks);
+        _fileHooks = new(_hooks, _modLoader.GetDirectoryForModId(_modConfig.ModId));
+
+        _environmentEditor = new(_hooks);
 
         var memory = Memory.Instance;
         _fieldViewerStr = (char*)memory.Allocate(24).Address;
@@ -137,11 +144,6 @@ public unsafe class Mod : ModBase // <= Do not Remove.
             _runFbnEditor = _hooks.CreateWrapper<RunFbnEditorDelegate>(address, out _);
         });
 
-        Utils.SigScan("40 57 48 83 EC 40 48 8B F9 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 83 38 00", "RunEnvironmentEditor", address =>
-        {
-            _runEnvironmentEditor = _hooks.CreateWrapper<RunFbnEditorDelegate>(address, out _);
-        });
-
         Utils.SigScan("48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 55 41 54 41 55 41 56 41 57 48 8D 6C 24 ?? 48 81 EC 00 01 00 00", "FieldViewer", address =>
         {
             _fieldViewer = (nuint)address;
@@ -177,10 +179,11 @@ public unsafe class Mod : ModBase // <= Do not Remove.
                 {
                     Utils.Log("Running thing!");
 
+                    _environmentEditor.Run();
+
                     //_runFbnEditor(0);
                     //_runCommunityEdit ();
                     //_runTestMayonakaTv(0);
-                    _runEnvironmentEditor(0);
                     //_runEvtEditLoad();
                     //RunTask(_fieldViewerStr, 0x101, 0, 0, _fieldViewer, 0, (void*)0);
 
@@ -240,7 +243,7 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     }
 
     private delegate nuint TestDrawPolyDelegate(nuint param_1);
-    private delegate void RunFbnEditorDelegate(nuint task);
+    private delegate TaskInfo* RunFbnEditorDelegate(nuint task);
     private delegate void DebugLogDelegate(string format, nuint arg1, nuint arg2, nuint arg3, nuint arg4, nuint arg5);
 
     #region Standard Overrides

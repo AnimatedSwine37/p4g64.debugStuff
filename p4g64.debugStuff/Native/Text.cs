@@ -1,4 +1,5 @@
-﻿using p4g64.debugStuff.NuGet.templates.defaultPlus;
+﻿using Microsoft.Win32.SafeHandles;
+using p4g64.debugStuff.NuGet.templates.defaultPlus;
 using Reloaded.Hooks.ReloadedII.Interfaces;
 using System;
 using System.Collections.Generic;
@@ -7,9 +8,10 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using static p4g64.debugStuff.Native.Tasks;
 
-namespace p4g64.debugStuff;
-internal unsafe static class Native
+namespace p4g64.debugStuff.Native;
+internal unsafe static partial class Text
 {
 
     internal static RunTaskDelegate RunTask;
@@ -32,16 +34,17 @@ internal unsafe static class Native
         {
             StringFormat = hooks.CreateWrapper<StringFormatDelegate>(address, out _);
         });
+
+        Utils.SigScan("48 89 54 24 ?? 4C 89 44 24 ?? 4C 89 4C 24 ?? 53 56 57 48 83 EC 30 48 8B F9 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B 5C 24 ?? 48 8D 74 24 ?? E8 ?? ?? ?? ?? 4C 8B CB", "StringFormat", address =>
+        {
+            StringFormat = hooks.CreateWrapper<StringFormatDelegate>(address, out _);
+        });
+
     }
 
     internal static void RenderText(char* text, float xPos, float yPos, Colour colour)
     {
         _renderTextHigher(xPos, yPos, 255, colour, 0, 0xd, text, TextPositioning.Right, -2);
-    }
-
-    internal struct TaskInfo
-    {
-
     }
 
     internal struct TextStruct
@@ -71,4 +74,15 @@ internal unsafe static class Native
     internal delegate TaskInfo* RunTaskDelegate(char* name, float param_2, int param_3, ushort param_4, nuint runFunc, nuint finishedFunc, void* taskArgs);
 
     internal delegate int StringFormatDelegate(char* dest, char* formatStr, nuint arg1, nuint arg2);
+
+    [LibraryImport("user32.dll", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial nint CreateFileW(
+        string lpFileName,
+        uint dwDesiredAccess,
+        uint dwShareMode,
+        IntPtr SecurityAttributes,
+        uint dwCreationDisposition,
+        uint dwFlagsAndAttributes,
+        IntPtr hTemplateFile
+    );
 }

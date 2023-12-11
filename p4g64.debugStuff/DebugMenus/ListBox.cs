@@ -8,7 +8,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using IReloadedHooks = Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks;
-using static p4g64.debugStuff.Native;
+using static p4g64.debugStuff.Native.Text;
 using System.Diagnostics;
 using Reloaded.Hooks.Definitions.Enums;
 
@@ -75,12 +75,12 @@ internal unsafe class ListBox
         }
     }
 
-    char* _intFormat = Utils.WriteStr("%s %8d", Encoding.ASCII);
-    char* _intHexFormat = Utils.WriteStr("%s 0x%08X", Encoding.ASCII);
-    char* _floatFormat = Utils.WriteStr("%s %4.2f", Encoding.ASCII);
-    char* _strFormat = Utils.WriteStr("%s %s", Encoding.ASCII);
-    char* _trueFormat = Utils.WriteStr("%s TRUE", Encoding.ASCII);
-    char* _falseFormat = Utils.WriteStr("%s FALSE", Encoding.ASCII);
+    char* _intFormat = Utils.WriteStr("%s %8d", Encoding.ASCII, out _);
+    char* _intHexFormat = Utils.WriteStr("%s 0x%08X", Encoding.ASCII, out _);
+    char* _floatFormat = Utils.WriteStr("%s %4.2f", Encoding.ASCII, out _);
+    char* _strFormat = Utils.WriteStr("%s %s", Encoding.ASCII, out _);
+    char* _trueFormat = Utils.WriteStr("%s TRUE", Encoding.ASCII, out _);
+    char* _falseFormat = Utils.WriteStr("%s FALSE", Encoding.ASCII, out _);
 
     private char* FormatListBoxValue(KskListBoxOption* option, char* outStr)
     {
