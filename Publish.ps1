@@ -162,7 +162,7 @@ param (
     $UseScriptDirectory=$True,
 
     ## => User Config <= ## 
-    $ProjectPath = "p4g64.debugStuff.csproj",
+    $ProjectPath = "p4g64.debugStuff/p4g64.debugStuff.csproj",
     $PackageName = "p4g64.debugStuff",
     $PublishOutputDir = "Publish/ToUpload",
 
