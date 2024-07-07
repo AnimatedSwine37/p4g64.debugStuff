@@ -1,16 +1,10 @@
-﻿using p4g64.debugStuff.NuGet.templates.defaultPlus;
-using Reloaded.Hooks.Definitions;
-using Reloaded.Hooks.ReloadedII.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using Reloaded.Hooks.Definitions;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading.Tasks;
+using p4g64.debugStuff.Native;
 using IReloadedHooks = Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks;
 using static p4g64.debugStuff.Native.Text;
-using System.Diagnostics;
-using Reloaded.Hooks.Definitions.Enums;
+using static p4g64.debugStuff.Utils;
 
 namespace p4g64.debugStuff.DebugMenus;
 internal unsafe class ListBox
@@ -21,21 +15,9 @@ internal unsafe class ListBox
 
     internal ListBox(IReloadedHooks hooks)
     {
-        Utils.SigScan("48 8B C4 48 89 58 ?? 48 89 70 ?? 48 89 78 ?? 55 48 8D A8 ?? ?? ?? ?? 48 81 EC 70 02 00 00", "KskListBoxRenderText", address =>
+        SigScan("48 8B C4 48 89 58 ?? 48 89 70 ?? 48 89 78 ?? 55 48 8D A8 ?? ?? ?? ?? 48 81 EC 70 02 00 00", "KskListBoxRenderText", address =>
         {
             _renderTextHook = hooks.CreateHook<KskListBoxRenderTextDelegate>(KskListBoxRenderText, address).Activate();
-        });
-
-        Utils.SigScan("C7 43 ?? 08 00 00 00 0F 5B C9", "DebugFontSize", address =>
-        {
-            string[] function =
-            {
-                "use64",
-                // Change options height
-                "mov dword [rbx + 0x28], 0x12", 
-                "mov dword [rbx + 0x2c], 0x12",
-            };
-            hooks.CreateAsmHook(function, address, AsmHookBehaviour.ExecuteAfter).Activate();
         });
     }
 
@@ -46,13 +28,9 @@ internal unsafe class ListBox
         _renderTextHook.OriginalFunction(args, param_2, param_3, param_4);
 
         var listBox = args->ListBox;
-        // TODO remove this once text size is fixed
-        if (listBox->List.NumDisplayedOptions > 28)
-            listBox->List.NumDisplayedOptions = 28;
-
         var option = listBox->Options;
         float xPos = listBox->Size.X;
-        float yPos = listBox->Size.Y + 2;
+        float yPos = listBox->Size.Y;
 
         // Get the first displayed option (go through all the ones that are off screen)
         for(int i = 0; i < listBox->OptionOffset; i++)
@@ -63,13 +41,13 @@ internal unsafe class ListBox
 
         char* text = stackalloc char[256];
 
-        // Render all of the options that should be shown
+        // Render all the options that should be shown
         for (int i = 0; i < listBox->List.NumDisplayedOptions; i++)
         {
             if (option == (KskListBoxOption*)0) break;
             
             var formatted = FormatListBoxValue(option, text);
-            RenderText(formatted, xPos, yPos, _textColour);
+            Text.Draw(xPos/2, yPos/2, 0, new RevColour(255, 255, 255, 255), 0, 5, formatted, TextPositioning.Right);
             yPos += listBox->OptionHeight;
             option = option->NextOption;
         }

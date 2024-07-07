@@ -7,7 +7,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace p4g64.debugStuff.NuGet.templates.defaultPlus;
+namespace p4g64.debugStuff;
 internal class Utils
 {
     private static ILogger _logger;

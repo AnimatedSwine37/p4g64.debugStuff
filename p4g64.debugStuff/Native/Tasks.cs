@@ -1,11 +1,5 @@
-﻿using p4g64.debugStuff.NuGet.templates.defaultPlus;
-using Reloaded.Hooks.ReloadedII.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using Reloaded.Hooks.ReloadedII.Interfaces;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace p4g64.debugStuff.Native;
 internal unsafe class Tasks

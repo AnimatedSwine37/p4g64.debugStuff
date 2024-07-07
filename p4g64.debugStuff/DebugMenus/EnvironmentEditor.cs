@@ -1,13 +1,6 @@
-﻿using p4g64.debugStuff.Native;
-using p4g64.debugStuff.NuGet.templates.defaultPlus;
-using Reloaded.Hooks.Definitions;
+﻿using Reloaded.Hooks.Definitions;
 using Reloaded.Memory;
 using Reloaded.Memory.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using static p4g64.debugStuff.Native.Tasks;
 
 namespace p4g64.debugStuff.DebugMenus;

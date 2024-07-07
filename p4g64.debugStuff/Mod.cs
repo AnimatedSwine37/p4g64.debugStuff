@@ -1,5 +1,4 @@
 ﻿using p4g64.debugStuff.Configuration;
-using p4g64.debugStuff.NuGet.templates.defaultPlus;
 using p4g64.debugStuff.Template;
 using Reloaded.Hooks.Definitions;
 using Reloaded.Hooks.ReloadedII.Interfaces;
@@ -63,7 +62,6 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     private Action _runRgbEdit;
     private Action _runDebugMenu;
     private Action _runEvtEditLoad;
-    private RunFbnEditorDelegate _runFbnEditor;
     private RunFbnEditorDelegate _runTestMayonakaTv;
     private Action _runCommunityEdit;
     private nuint _fieldViewer;
@@ -74,6 +72,7 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     private Files _fileHooks;
 
     private EnvironmentEditor _environmentEditor;
+    private FbnEditor _fbnEditor;
 
     public Mod(ModContext context)
     {
@@ -92,6 +91,7 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         _fileHooks = new(_hooks, _modLoader.GetDirectoryForModId(_modConfig.ModId));
 
         _environmentEditor = new(_hooks);
+        _fbnEditor = new(_hooks);
 
         var memory = Memory.Instance;
         _fieldViewerStr = (char*)memory.Allocate(24).Address;
@@ -139,11 +139,6 @@ public unsafe class Mod : ModBase // <= Do not Remove.
             _runEvtEditLoad = _hooks.CreateWrapper<Action>(address, out _);
         });
 
-        Utils.SigScan("40 57 48 83 EC 40 48 8B F9 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 83 78 ?? 00", "RunFbnEditor", address =>
-        {
-            _runFbnEditor = _hooks.CreateWrapper<RunFbnEditorDelegate>(address, out _);
-        });
-
         Utils.SigScan("48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 55 41 54 41 55 41 56 41 57 48 8D 6C 24 ?? 48 81 EC 00 01 00 00", "FieldViewer", address =>
         {
             _fieldViewer = (nuint)address;
@@ -151,16 +146,19 @@ public unsafe class Mod : ModBase // <= Do not Remove.
 
 
         // Not unique and I can't be bothered scanning for the struct it's from (yet)
-        _runRgbEdit = _hooks.CreateWrapper<Action>(0x140440fa0, out _);
+        //_runRgbEdit = _hooks.CreateWrapper<Action>(0x140440fa0, out _);
         _runDebugMenu = _hooks.CreateWrapper<Action>(0x1403db350, out _);
-        _runTestMayonakaTv = _hooks.CreateWrapper<RunFbnEditorDelegate>(0x1404759f0, out _);
-        _runCommunityEdit = _hooks.CreateWrapper<Action>(0x1401d62a0, out _);
+        //_runTestMayonakaTv = _hooks.CreateWrapper<RunFbnEditorDelegate>(0x1404759f0, out _);
+        //_runCommunityEdit = _hooks.CreateWrapper<Action>(0x1401d62a0, out _);
 
         Task.Run(() => InputHook());
     }
 
     private void InputHook()
     {
+        // TODO absolutely do not do this, use OnModLoaderInitialised or something like that. It was causing problems
+        Thread.Sleep(5000);
+        Utils.Log("Setting up input hook");
         var directInput = new DirectInput();
         var keyboard = new Keyboard(directInput);
 
@@ -181,13 +179,13 @@ public unsafe class Mod : ModBase // <= Do not Remove.
 
                     _environmentEditor.Run();
 
-                    //_runFbnEditor(0);
+                    //_runDebugMenu();
+                    // _fbnEditor.Run();
                     //_runCommunityEdit ();
                     //_runTestMayonakaTv(0);
                     //_runEvtEditLoad();
                     //RunTask(_fieldViewerStr, 0x101, 0, 0, _fieldViewer, 0, (void*)0);
 
-                    //_runDebugMenu();
                     //_runRgbEdit();
                     //_runFontInfo();
                     //_runCpuGraph();

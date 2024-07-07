@@ -1,13 +1,6 @@
-﻿using p4g64.debugStuff.NuGet.templates.defaultPlus;
-using Reloaded.Hooks.Definitions;
-using Reloaded.Hooks.ReloadedII.Interfaces;
+﻿using Reloaded.Hooks.Definitions;
 using Reloaded.Memory;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using IReloadedHooks = Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks;
 
 namespace p4g64.debugStuff.DebugMenus;
