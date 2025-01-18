@@ -83,7 +83,7 @@ internal unsafe class ListBox
                 format = option->IntValue == 0 ? _falseFormat : _trueFormat;
                 break;
             default:
-                return name;
+                return (char*)name;
         }
         
         int length = StringFormat(outStr, format, (nuint)name, value);
@@ -93,14 +93,14 @@ internal unsafe class ListBox
 
 
     [StructLayout(LayoutKind.Explicit)]
-    private struct KskListBoxArgs
+    internal struct KskListBoxArgs
     {
         [FieldOffset(0x48)]
         internal KskListBox* ListBox;
     }
 
     [StructLayout(LayoutKind.Explicit)]
-    private struct KskListBox
+    internal struct KskListBox
     {
         [FieldOffset(0x18)]
         internal KskWindowPos Size;
@@ -125,7 +125,7 @@ internal unsafe class ListBox
     }
 
     [StructLayout(LayoutKind.Explicit)]
-    private struct KskWindowPos
+    internal struct KskWindowPos
     {
         [FieldOffset(0)]
         internal float X;
@@ -141,22 +141,22 @@ internal unsafe class ListBox
     }
 
     [StructLayout(LayoutKind.Explicit)]
-    private struct KskWindowArgs
+    internal struct KskWindowArgs
     {
 
     }
 
     [StructLayout(LayoutKind.Explicit)]
-    private struct KskListBoxOption
+    internal struct KskListBoxOption
     {
         [FieldOffset(4)]
         internal KskListBoxValue ValueType;
 
         [FieldOffset(8)]
-        internal fixed char Text[256];
+        internal fixed byte Text[256];
 
         [FieldOffset(0x108)]
-        internal fixed char StrValue[256];
+        internal fixed byte StrValue[256];
 
         [FieldOffset(0x208)]
         internal int IntValue;
@@ -172,7 +172,7 @@ internal unsafe class ListBox
     }
 
     [StructLayout(LayoutKind.Explicit)]
-    private struct KskList
+    internal struct KskList
     {
         [FieldOffset(0x14)]
         internal int NumDisplayedOptions;
@@ -187,7 +187,7 @@ internal unsafe class ListBox
         internal int OptionOffset;
     }
 
-    private enum KskListBoxValue : int
+    internal enum KskListBoxValue : int
     {
         None = 0,
         String = 1,

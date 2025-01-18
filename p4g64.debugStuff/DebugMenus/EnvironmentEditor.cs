@@ -1,4 +1,6 @@
 ﻿using System.Runtime.InteropServices;
+using System.Text;
+using p4g64.debugStuff.Native;
 using Reloaded.Hooks.Definitions;
 using Reloaded.Hooks.Definitions.Enums;
 using Reloaded.Memory;
@@ -19,6 +21,7 @@ internal unsafe class EnvironmentEditor
     private IHook<SaveEnvFileDelegate> _saveEnvHook;
     private IHook<LoadEnvironmentDelegate> _loadEnvironmentHook;
     private IHook<SaveEnvironmentDelegate> _saveEnvironmentHook;
+    private IHook<EnvLoadDelegate> _envLoadHook;
     private IReverseWrapper<SetCurrentEnvDelegate> _setCurrentEnvReverseWrapper;
     private IAsmHook _envFileNameHook;
 
@@ -26,6 +29,8 @@ internal unsafe class EnvironmentEditor
     private int _envMinor = 0;
 
     private int** _fieldMajor;
+    private FileInfo** _fieldArc;
+    private string _fieldArcName = null;
 
     internal EnvironmentEditor(IReloadedHooks hooks)
     {
@@ -56,7 +61,7 @@ internal unsafe class EnvironmentEditor
 
                 _loadEnvHook = hooks.CreateAsmHook(function, address, AsmHookBehaviour.ExecuteFirst).Activate();
             });
-        
+
         Utils.SigScan("E8 ?? ?? ?? ?? 48 8B C8 48 8B 78 ??", "LoadEnvironmenFile", address =>
         {
             string[] function =
@@ -71,43 +76,54 @@ internal unsafe class EnvironmentEditor
 
             _envFileNameHook = hooks.CreateAsmHook(function, address, AsmHookBehaviour.ExecuteFirst).Activate();
         });
-        
-        Utils.SigScan("48 89 5C 24 ?? 57 48 81 EC B0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 ?? ?? ?? ?? 48 8B D9 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B 7B ?? 48 63 07", "LoadEnvironment",
+
+        Utils.SigScan(
+            "48 89 5C 24 ?? 57 48 81 EC B0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 ?? ?? ?? ?? 48 8B D9 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B 7B ?? 48 63 07",
+            "LoadEnvironment",
             address =>
             {
                 _loadEnvironmentHook = hooks.CreateHook<LoadEnvironmentDelegate>(LoadEnvironment, address).Activate();
             });
-        
-        Utils.SigScan("48 89 5C 24 ?? 57 48 81 EC B0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 ?? ?? ?? ?? 48 8B D9 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B 7B ?? 8B 0F", "SaveEnvironment",
+
+        Utils.SigScan(
+            "48 89 5C 24 ?? 57 48 81 EC B0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 ?? ?? ?? ?? 48 8B D9 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B 7B ?? 8B 0F",
+            "SaveEnvironment",
             address =>
             {
                 _saveEnvironmentHook = hooks.CreateHook<SaveEnvironmentDelegate>(SaveEnvironment, address).Activate();
             });
-        
-        Utils.SigScan("48 8B 05 ?? ?? ?? ?? 48 8D 4C 24 ?? 44 8B 00 E8 ?? ?? ?? ?? 48 8B 47 ?? 4C 8D 44 24 ?? 48 8B 48 ?? 48 8B 91 ?? ?? ?? ?? 48 85 D2 74 ?? 39 1A 74 ?? 66 0F 1F 44 ?? 00", "FieldMajorPtr", address =>
-        {
-            _fieldMajor = (int**)Utils.GetGlobalAddress(address + 3);
-        });
-        
-        Utils.SigScan("E8 ?? ?? ?? ?? 48 8D 4C 24 ?? 48 FF C9 0F 1F 40 00 80 79 ?? 00 48 8D 49 ?? 75 ?? 4C 8D 94 24 ?? ?? ?? ??", "SaveEnvFileLocation", address =>
-        {
-            // Change the file path to be app0:/field/fxxx_xxx.ENV
-            string[] function =
-            {
-                "use64",
-                "lea rcx, [rsp+0x36]", // Write the path after app0:/ (don't put in data folder)
-                 hooks.Utilities.GetAbsoluteJumpMnemonics(address + 0x1b, true) // skip over moving to after data, we just did this with the above instruction
-            };
 
-            _saveEnvLocationHook = hooks.CreateAsmHook(function, address, AsmHookBehaviour.DoNotExecuteOriginal).Activate();
-        });
+        Utils.SigScan("48 39 35 ?? ?? ?? ?? 75 ?? 83 7F ?? 0C", "FieldPackPtr",
+            address => { _fieldArc = (FileInfo**)Utils.GetGlobalAddress(address + 3); });
 
-        Utils.SigScan("40 53 48 81 EC 40 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 ?? ?? ?? ?? 8B D9", "SaveEnvFile",
-            address =>
+        Utils.SigScan("40 55 53 56 57 41 56 48 8D AC 24 ?? ?? ?? ?? B8 E0 9E 00 00", "Env::Load",
+            address => { _envLoadHook = hooks.CreateHook<EnvLoadDelegate>(EnvLoad, address).Activate(); });
+
+        Utils.SigScan(
+            "48 8B 05 ?? ?? ?? ?? 48 8D 4C 24 ?? 44 8B 00 E8 ?? ?? ?? ?? 48 8B 47 ?? 4C 8D 44 24 ?? 48 8B 48 ?? 48 8B 91 ?? ?? ?? ?? 48 85 D2 74 ?? 39 1A 74 ?? 66 0F 1F 44 ?? 00",
+            "FieldMajorPtr", address => { _fieldMajor = (int**)Utils.GetGlobalAddress(address + 3); });
+
+        Utils.SigScan(
+            "E8 ?? ?? ?? ?? 48 8D 4C 24 ?? 48 FF C9 0F 1F 40 00 80 79 ?? 00 48 8D 49 ?? 75 ?? 4C 8D 94 24 ?? ?? ?? ??",
+            "SaveEnvFileLocation", address =>
             {
-                _saveEnvHook = hooks.CreateHook<SaveEnvFileDelegate>(SaveEnvFile, address).Activate();
+                // Change the file path to be app0:/field/fxxx_xxx.ENV
+                string[] function =
+                {
+                    "use64",
+                    "lea rcx, [rsp+0x36]", // Write the path after app0:/ (don't put in data folder)
+                    hooks.Utilities.GetAbsoluteJumpMnemonics(address + 0x1b,
+                        true) // skip over moving to after data, we just did this with the above instruction
+                };
+
+                _saveEnvLocationHook = hooks.CreateAsmHook(function, address, AsmHookBehaviour.DoNotExecuteOriginal)
+                    .Activate();
             });
-        
+
+        Utils.SigScan("40 53 48 81 EC 40 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 ?? ?? ?? ?? 8B D9",
+            "SaveEnvFile",
+            address => { _saveEnvHook = hooks.CreateHook<SaveEnvFileDelegate>(SaveEnvFile, address).Activate(); });
+
         // =============================================
         // Fixes for some sub menus unlocking the inputs
         // =============================================
@@ -138,20 +154,33 @@ internal unsafe class EnvironmentEditor
             });
     }
 
-    public void SetCurrentEnv(string fileName)
+    private void SetCurrentEnv(string fileName)
     {
         _envMajor = int.Parse(fileName.Substring(1, 3));
         _envMinor = int.Parse(fileName.Substring(5, 3));
         Utils.Log($"Entered field with env {fileName}");
     }
-    
+
+    private bool EnvLoad(nuint envLoad, nuint fieldMinor)
+    {
+        if(*_fieldArc != null)
+        {
+            string fullArc = Encoding.ASCII.GetString((*_fieldArc)->Name, 64);
+            _fieldArcName = fullArc.Split('/').Last().Trim();
+            Utils.Log("Field arc is " + _fieldArcName);
+        }
+        
+        return _envLoadHook.OriginalFunction(envLoad, fieldMinor);
+    }
+
     private UIntPtr LoadEnvironment(EnvEditorTask* envEditorTask, UIntPtr param_2, UIntPtr param_3, UIntPtr param_4)
     {
         if (envEditorTask->Args->State == 0)
         {
             envEditorTask->Args->FieldMinor = _envMinor;
+            Utils.Log($"Env is from {_fieldArcName}");
         }
-        
+
         // Change the field major to the env major when running this func (it's easier than patching each place that the major global is used)
         var fieldMajor = **_fieldMajor;
         **_fieldMajor = _envMajor;
@@ -159,19 +188,39 @@ internal unsafe class EnvironmentEditor
         **_fieldMajor = fieldMajor;
         return res;
     }
-    
+
     private UIntPtr SaveEnvironment(EnvEditorTask* envEditorTask, UIntPtr param_2, UIntPtr param_3, UIntPtr param_4)
     {
+        bool initial = false;
         if (envEditorTask->Args->State == 0)
         {
+            initial = true;
+            Utils.Log($"Env is from {_fieldArcName}");
             envEditorTask->Args->FieldMinor = _envMinor;
         }
-        
+
         // Change the field major to the env major when running this func (it's easier than patching each place that the major global is used)
         var fieldMajor = **_fieldMajor;
         **_fieldMajor = _envMajor;
         var res = _saveEnvironmentHook.OriginalFunction(envEditorTask, param_2, param_3, param_4);
         **_fieldMajor = fieldMajor;
+
+        // Add the arc name to the list box; this code does not work at all, it's more complex :(
+        // if (initial)
+        // {
+        //     var listBoxArgs = (ListBox.KskListBoxArgs*)envEditorTask->Args->ListBoxTask->Args;
+        //     listBoxArgs->ListBox->List.NumOptions = 2;
+        //     listBoxArgs->ListBox->List.NumDisplayedOptions = 2;
+        //
+        //     var arcOption = (ListBox.KskListBoxOption*)Marshal.AllocHGlobal(sizeof(ListBox.KskListBoxOption));
+        //     var nameBytes = Encoding.ASCII.GetBytes(_fieldArcName);
+        //     for (int i = 0; i < nameBytes.Length; i++)
+        //     {
+        //         arcOption->Text[i] = nameBytes[i];
+        //     }
+        //     listBoxArgs->ListBox->Options->NextOption = arcOption;
+        // }
+        
         return res;
     }
 
@@ -179,7 +228,7 @@ internal unsafe class EnvironmentEditor
     {
         if (!Directory.Exists("field/env"))
             Directory.CreateDirectory("field/env");
-        
+
         _saveEnvHook.OriginalFunction(param_1);
     }
 
@@ -208,24 +257,34 @@ internal unsafe class EnvironmentEditor
     [StructLayout(LayoutKind.Explicit)]
     private struct EnvEditorTask
     {
-        [FieldOffset(0x48)]
-        internal EnvEditorTaskArgs* Args;
+        [FieldOffset(0x48)] internal EnvEditorTaskArgs* Args;
     }
 
     [StructLayout(LayoutKind.Explicit)]
     private struct EnvEditorTaskArgs
     {
-        [FieldOffset(0)] 
-        internal int State;
-        
-        [FieldOffset(4)]
-        internal int FieldMinor;
+        [FieldOffset(0)] internal int State;
+
+        [FieldOffset(4)] internal int FieldMinor;
+
+        [FieldOffset(8)] internal TaskInfo* ListBoxTask;
     }
-    
+
+    [StructLayout(LayoutKind.Explicit)]
+    private struct FileInfo
+    {
+        [FieldOffset(16)] internal fixed byte Name[64];
+    }
+
     private delegate void SaveEnvFileDelegate(uint param_1);
 
     private delegate void SetCurrentEnvDelegate(string fileName);
-    private delegate nuint LoadEnvironmentDelegate(EnvEditorTask* envEditorTask, nuint param_2, nuint param_3, nuint param_4);
-    private delegate nuint SaveEnvironmentDelegate(EnvEditorTask* envEditorTask, nuint param_2, nuint param_3, nuint param_4);
 
+    private delegate bool EnvLoadDelegate(nuint envLoad, nuint fieldMinor);
+
+    private delegate nuint LoadEnvironmentDelegate(EnvEditorTask* envEditorTask, nuint param_2, nuint param_3,
+        nuint param_4);
+
+    private delegate nuint SaveEnvironmentDelegate(EnvEditorTask* envEditorTask, nuint param_2, nuint param_3,
+        nuint param_4);
 }
