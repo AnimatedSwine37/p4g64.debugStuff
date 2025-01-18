@@ -1,12 +1,8 @@
 ﻿using p4g64.debugStuff.Configuration;
 using p4g64.debugStuff.Template;
 using Reloaded.Hooks.Definitions;
-using Reloaded.Hooks.ReloadedII.Interfaces;
 using Reloaded.Mod.Interfaces;
 using SharpDX.DirectInput;
-using System.Diagnostics;
-using System.IO;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using IReloadedHooks = Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks;
@@ -14,8 +10,10 @@ using Reloaded.Memory;
 using p4g64.debugStuff.DebugMenus;
 using p4g64.debugStuff.Native;
 using static p4g64.debugStuff.Native.Tasks;
+using static p4g64.debugStuff.Utils;
 
 namespace p4g64.debugStuff;
+
 /// <summary>
 /// Your mod logic goes here.
 /// </summary>
@@ -65,6 +63,8 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     private RunFbnEditorDelegate _runTestMayonakaTv;
     private Action _runCommunityEdit;
     private nuint _fieldViewer;
+    private RunHbnEditorDelegate _runHbnEditor;
+    private Action _runDebugDataInfo;
 
     private char* _fieldViewerStr;
 
@@ -97,52 +97,50 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         _fieldViewerStr = (char*)memory.Allocate(24).Address;
         memory.WriteRaw((nuint)_fieldViewerStr, Encoding.ASCII.GetBytes("field view\0"));
 
-        Utils.SigScan("E8 ?? ?? ?? ?? EB ?? BB 3D 00 00 00", "DebugPrintPtr", address =>
+        SigScan("E8 ?? ?? ?? ?? EB ?? BB 3D 00 00 00", "DebugPrintPtr", address =>
         {
             var funcAddress = Utils.GetGlobalAddress(address + 1);
             Utils.Log($"Found DebugPrint at 0x{funcAddress:X}");
             _debugLogHook = _hooks.CreateHook<DebugLogDelegate>(DebugLog, (long)funcAddress).Activate();
         });
 
-        Utils.SigScan("40 53 48 83 EC 40 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? BA 70 19 01 00", "RunSprView", address =>
-        {
-            _runSprView = _hooks.CreateWrapper<Action>(address, out _);
-        });
+        SigScan("40 53 48 83 EC 40 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? BA 70 19 01 00", "RunSprView",
+            address => { _runSprView = _hooks.CreateWrapper<Action>(address, out _); });
 
-        Utils.SigScan("48 83 EC 48 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? BA 10 00 00 00 8D 4A ?? E8 ?? ?? ?? ?? 48 85 C0 0F 84 ?? ?? ?? ??", "RunBustupView", address =>
-        {
-            _runBustupView = _hooks.CreateWrapper<Action>(address, out _);
-        });
+        SigScan(
+            "48 83 EC 48 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? BA 10 00 00 00 8D 4A ?? E8 ?? ?? ?? ?? 48 85 C0 0F 84 ?? ?? ?? ??",
+            "RunBustupView", address => { _runBustupView = _hooks.CreateWrapper<Action>(address, out _); });
 
-        Utils.SigScan("48 89 5C 24 ?? 48 89 74 24 ?? 57 48 83 EC 40 48 8B F1 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? BA 20 00 00 00 8D 4A ?? E8 ?? ?? ?? ?? 48 8B F8", "RunTestDrawPoly", address =>
-        {
-            _runTestDrawPoly = _hooks.CreateWrapper<TestDrawPolyDelegate>(address, out _);
-        });
+        SigScan(
+            "48 89 5C 24 ?? 48 89 74 24 ?? 57 48 83 EC 40 48 8B F1 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? BA 20 00 00 00 8D 4A ?? E8 ?? ?? ?? ?? 48 8B F8",
+            "RunTestDrawPoly",
+            address => { _runTestDrawPoly = _hooks.CreateWrapper<TestDrawPolyDelegate>(address, out _); });
 
-        Utils.SigScan("48 83 EC 48 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 85 C0 75 ?? BA 40 02 00 00", "RunScriptViewer", address =>
-        {
-            _runScriptViewer = _hooks.CreateWrapper<Action>(address, out _);
-        });
+        SigScan(
+            "48 83 EC 48 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 85 C0 75 ?? BA 40 02 00 00",
+            "RunScriptViewer", address => { _runScriptViewer = _hooks.CreateWrapper<Action>(address, out _); });
 
-        Utils.SigScan("48 83 EC 48 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 85 C0 74 ?? 48 8B C8 48 83 C4 48 E9 ?? ?? ?? ?? BA 54 31 00 00", "RunCpuGraph", address =>
-        {
-            _runCpuGraph = _hooks.CreateWrapper<Action>(address, out _);
-        });
+        SigScan(
+            "48 83 EC 48 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 85 C0 74 ?? 48 8B C8 48 83 C4 48 E9 ?? ?? ?? ?? BA 54 31 00 00",
+            "RunCpuGraph", address => { _runCpuGraph = _hooks.CreateWrapper<Action>(address, out _); });
 
-        Utils.SigScan("48 83 EC 48 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 85 C0 74 ?? 48 8B C8 48 83 C4 48 E9 ?? ?? ?? ?? 48 89 44 24 ??", "RunFontInfo", address =>
-        {
-            _runFontInfo = _hooks.CreateWrapper<Action>(address, out _);
-        });
+        SigScan(
+            "48 83 EC 48 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 85 C0 74 ?? 48 8B C8 48 83 C4 48 E9 ?? ?? ?? ?? 48 89 44 24 ??",
+            "RunFontInfo", address => { _runFontInfo = _hooks.CreateWrapper<Action>(address, out _); });
 
-        Utils.SigScan("48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 48 83 EC 40 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ??", "RunEvtEditLoad", address =>
-        {
-            _runEvtEditLoad = _hooks.CreateWrapper<Action>(address, out _);
-        });
+        SigScan(
+            "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 48 83 EC 40 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ??",
+            "RunEvtEditLoad", address => { _runEvtEditLoad = _hooks.CreateWrapper<Action>(address, out _); });
 
-        Utils.SigScan("48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 55 41 54 41 55 41 56 41 57 48 8D 6C 24 ?? 48 81 EC 00 01 00 00", "FieldViewer", address =>
-        {
-            _fieldViewer = (nuint)address;
-        });
+        SigScan("48 89 5C 24 ?? 56 48 83 EC 40 48 8B F1 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ??",
+            "RunHbnEditor", address => { _runHbnEditor = _hooks.CreateWrapper<RunHbnEditorDelegate>(address, out _); });
+
+        SigScan("48 83 EC 48 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? BA 30 00 00 00 8D 4A ?? E8 ?? ?? ?? ?? 33 C9",
+            "RunDebugDataInfo", address => { _runDebugDataInfo = _hooks.CreateWrapper<Action>(address, out _); });
+
+        SigScan(
+            "48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 55 41 54 41 55 41 56 41 57 48 8D 6C 24 ?? 48 81 EC 00 01 00 00",
+            "FieldViewer", address => { _fieldViewer = (nuint)address; });
 
 
         // Not unique and I can't be bothered scanning for the struct it's from (yet)
@@ -158,7 +156,7 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     {
         // TODO absolutely do not do this, use OnModLoaderInitialised or something like that. It was causing problems
         Thread.Sleep(5000);
-        Utils.Log("Setting up input hook");
+        Log("Setting up input hook");
         var directInput = new DirectInput();
         var keyboard = new Keyboard(directInput);
 
@@ -173,27 +171,34 @@ public unsafe class Mod : ModBase // <= Do not Remove.
             var datas = keyboard.GetBufferedData();
             foreach (var state in datas)
             {
-                if (state.Key == Key.F4 && state.IsPressed)
+                if (!state.IsPressed) continue;
+
+                if (state.Key == _configuration.EnvMenu)
                 {
-                    Utils.Log("Running thing!");
-
+                    LogDebug("Opening the env menu");
                     _environmentEditor.Run();
-
-                    //_runDebugMenu();
-                    // _fbnEditor.Run();
-                    //_runCommunityEdit ();
-                    //_runTestMayonakaTv(0);
-                    //_runEvtEditLoad();
-                    //RunTask(_fieldViewerStr, 0x101, 0, 0, _fieldViewer, 0, (void*)0);
-
-                    //_runRgbEdit();
-                    //_runFontInfo();
-                    //_runCpuGraph();
-                    //_runScriptViewer();
-                    //_runTestDrawPoly(0);
-                    //_runBustupView();
-                    //_runSprView();
                 }
+                else if (state.Key == _configuration.FbnMenu)
+                {
+                    LogDebug("Opening the fbn menu");
+                    _fbnEditor.Run();
+                }
+                
+                // if (state.Key == Key.F7)
+                // {
+                //     Log("Running thing!");
+                //
+                //     _runBustupView();
+                //     _runHbnEditor((TaskInfo*)0);
+                //
+                //     //_runDebugMenu();
+                //     //_runCommunityEdit ();
+                //     //_runTestMayonakaTv(0);
+                //     //_runEvtEditLoad();
+                //     //Text.RunTask(_fieldViewerStr, 0x101, 0, 0, _fieldViewer, 0, (void*)0);
+                //
+                //     //_runSprView();
+                // }
             }
         }
     }
@@ -201,6 +206,7 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     private void DebugLog(string format, nuint arg1, nuint arg2, nuint arg3, nuint arg4, nuint arg5)
     {
         int n = 0;
+
         nuint getArg()
         {
             switch (n)
@@ -213,6 +219,7 @@ public unsafe class Mod : ModBase // <= Do not Remove.
                 default: return arg5;
             }
         }
+
         List<object> args = new();
         string csFormat = Regex.Replace(format, @"%((0([0-9])lX)?[dsf]?)", m =>
         {
@@ -222,6 +229,7 @@ public unsafe class Mod : ModBase // <= Do not Remove.
                 args.Add(getArg());
                 return $"{{{n++}:X{m.Groups[3].Value}}}";
             }
+
             switch (m.Groups[1].Value)
             {
                 case "d":
@@ -234,17 +242,24 @@ public unsafe class Mod : ModBase // <= Do not Remove.
                     args.Add(Utils.GetCString((byte*)getArg()));
                     break;
             }
+
             return $"{{{n++}}}";
         });
 
-        _logger.Write(string.Format(csFormat, args.ToArray()), System.Drawing.Color.LightGreen); ;
+        _logger.Write(string.Format(csFormat, args.ToArray()), System.Drawing.Color.LightGreen);
+        ;
     }
 
     private delegate nuint TestDrawPolyDelegate(nuint param_1);
+
     private delegate TaskInfo* RunFbnEditorDelegate(nuint task);
+
+    private delegate TaskInfo* RunHbnEditorDelegate(TaskInfo* task);
+
     private delegate void DebugLogDelegate(string format, nuint arg1, nuint arg2, nuint arg3, nuint arg4, nuint arg5);
 
     #region Standard Overrides
+
     public override void ConfigurationUpdated(Config configuration)
     {
         // Apply settings from configuration.
@@ -252,11 +267,16 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         _configuration = configuration;
         _logger.WriteLine($"[{_modConfig.ModId}] Config Updated: Applying");
     }
+
     #endregion
 
     #region For Exports, Serialization etc.
+
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
-    public Mod() { }
+    public Mod()
+    {
+    }
 #pragma warning restore CS8618
+
     #endregion
 }
