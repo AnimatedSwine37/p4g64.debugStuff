@@ -2,7 +2,7 @@
   "ModId": "p4g64.debugStuff",
   "ModName": "Debug Stuff",
   "ModAuthor": "AnimatedSwine37",
-  "ModVersion": "0.0.3",
+  "ModVersion": "0.0.4",
   "ModDescription": "Does debug stuff I guess, event editor eventually?",
   "ModDll": "p4g64.debugStuff.dll",
   "ModIcon": "Preview.png",
