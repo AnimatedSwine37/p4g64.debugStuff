@@ -1,5 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using p4g64.debugStuff.Native;
 using Reloaded.Hooks.Definitions;
 using Reloaded.Hooks.Definitions.Enums;
@@ -156,9 +157,19 @@ internal unsafe class EnvironmentEditor
 
     private void SetCurrentEnv(string fileName)
     {
-        _envMajor = int.Parse(fileName.Substring(1, 3));
-        _envMinor = int.Parse(fileName.Substring(5, 3));
         Utils.Log($"Entered field with env {fileName}");
+        
+        var idMatch = new Regex(@"(\d{3})_(\d{3})").Match(fileName);
+        if (!idMatch.Success)
+        {
+            Utils.LogError($"Failed to parse env id from file name {fileName}. This shouldn't happen! Setting major and minor to 0.");
+            _envMajor = 0;
+            _envMinor = 0;
+            return;
+        }
+        
+        _envMajor = int.Parse(idMatch.Groups[1].Value);
+        _envMinor = int.Parse(idMatch.Groups[2].Value);
     }
 
     private bool EnvLoad(nuint envLoad, nuint fieldMinor)
